@@ -26,6 +26,27 @@ st.set_page_config(
 # Custom CSS for better styling
 st.markdown("""
 <style>
+    /* Responsive meta tag for mobile scaling */
+    @media (max-width: 600px) {
+        html, body, .main-header, .status-box, .transcript-box, .agenda-box {
+            font-size: 1.05rem !important;
+        }
+        .main-header {
+            padding: 1rem 0 !important;
+        }
+        .transcript-box, .agenda-box {
+            max-height: 250px !important;
+            font-size: 0.98rem !important;
+        }
+        .stTextArea textarea, .stButton button {
+            font-size: 1.1rem !important;
+            min-height: 48px !important;
+        }
+        .stButton button, .stDownloadButton button {
+            width: 100% !important;
+            min-width: 0 !important;
+        }
+    }
     .main-header {
         text-align: center;
         padding: 2rem 0;
@@ -68,8 +89,34 @@ st.markdown("""
         overflow-y: auto;
         font-family: 'Courier New', monospace;
         white-space: pre-wrap;
+        color: #222 !important;
+        box-sizing: border-box;
+    }
+    .agenda-box {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 1rem;
+        max-height: 300px;
+        overflow-y: auto;
+        font-family: 'Courier New', monospace;
+        white-space: pre-wrap;
+        color: #222 !important;
+        box-sizing: border-box;
+    }
+    .stTextArea textarea, .stButton button, .stDownloadButton button {
+        border-radius: 8px !important;
+        font-size: 1.08rem !important;
+        min-height: 44px !important;
+        box-sizing: border-box;
+    }
+    .stButton button, .stDownloadButton button {
+        width: 100% !important;
+        min-width: 0 !important;
+        margin-bottom: 0.5rem !important;
     }
 </style>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 """, unsafe_allow_html=True)
 
 def read_uploaded_file(uploaded_file):
@@ -154,16 +201,20 @@ Time: {time_str}
 
 """
     
-    # Extract key points (simple implementation)
-    sentences = re.split(r'[.!?]+', transcript)
-    key_sentences = [s.strip() for s in sentences if len(s.strip()) > 20][:5]
-    
+    # Extract key points: unique, non-empty transcript lines (not affected by attendees)
+    lines = [line.strip() for line in transcript.split('\n') if line.strip()]
+    seen = set()
+    unique_lines = []
+    for line in lines:
+        if line not in seen:
+            seen.add(line)
+            unique_lines.append(line)
+        if len(unique_lines) == 5:
+            break
     minutes += """DISCUSSION SUMMARY:
 """
-    
-    for i, sentence in enumerate(key_sentences, 1):
-        if sentence:
-            minutes += f"{i}. {sentence.strip()}\n"
+    for i, line in enumerate(unique_lines, 1):
+        minutes += f"{i}. {line}\n"
     
     minutes += f"""
 
@@ -192,195 +243,155 @@ def main():
         st.session_state.agenda = ""
     if 'minutes' not in st.session_state:
         st.session_state.minutes = ""
-    
-    # Sidebar for controls and agenda
-    with st.sidebar:
-        st.header("📋 Meeting Setup")
-        
-        # macOS Permission Notice
-        st.markdown("""
-        <div class="status-box warning-box">
-            <strong>🔒 macOS Users:</strong><br>
-            Make sure to allow microphone access when prompted.<br>
-            Go to System Settings → Privacy & Security → Microphone if needed.
-        </div>
+
+    # Agenda upload
+    st.subheader("Upload Agenda")
+    uploaded_file = st.file_uploader(
+        "Choose agenda file",
+        type=['txt', 'pdf', 'docx'],
+        help="Upload your meeting agenda for better minutes generation"
+    )
+    if uploaded_file is not None:
+        st.session_state.agenda = read_uploaded_file(uploaded_file)
+        st.success(f"Agenda loaded from {uploaded_file.name}")
+
+    # Agenda preview
+    st.subheader("Agenda Preview")
+    if st.session_state.agenda:
+        st.markdown(f"""
+        <div class="agenda-box">{st.session_state.agenda}</div>
         """, unsafe_allow_html=True)
-        
-        # Agenda upload
-        st.subheader("Upload Agenda")
-        uploaded_file = st.file_uploader(
-            "Choose agenda file",
-            type=['txt', 'pdf', 'docx'],
-            help="Upload your meeting agenda for better minutes generation"
-        )
-        
-        if uploaded_file is not None:
-            st.session_state.agenda = read_uploaded_file(uploaded_file)
-            st.success(f"Agenda loaded from {uploaded_file.name}")
-        
-        # Attendees
-        st.subheader("Meeting Attendees")
-        attendees_input = st.text_area(
-            "Enter attendee names (one per line)",
-            help="List all meeting participants",
-            value="Speaker 1\nSpeaker 2"
-        )
-        attendees = [name.strip() for name in attendees_input.split('\n') if name.strip()]
-        
-        # Clear transcript
-        if st.button("🗑️ Clear All Transcripts", type="secondary"):
-            st.session_state.transcript_history = []
-            st.session_state.full_transcript = ""
-            st.session_state.minutes = ""
-            st.rerun()
-        
-        # Cost info
+    else:
+        st.info("Upload an agenda file to see preview here")
         st.markdown("""
-        ### 💡 Cost-Effective Features:
-        - Uses Google's free speech recognition API
-        - Local audio processing
-        - No subscription fees
-        - Works offline for file processing
-        - Multi-format support (PDF, DOCX, TXT)
+        **Sample agenda format:**
+        ```
+        1. Welcome and introductions
+        2. Review of previous meeting
+        3. Current project status
+        4. Budget discussion
+        5. Next steps
+        6. Questions and answers
+        ```
         """)
+
+    # Attendees
+    st.subheader("Meeting Attendees")
+    attendees_input = st.text_area(
+        "Enter attendee names (one per line)",
+        help="List all meeting participants",
+        value=""
+    )
+    attendees = [name.strip() for name in attendees_input.split('\n') if name.strip()]
+
+    # Clear transcript
+    if st.button("🗑️ Clear All Transcripts", type="secondary"):
+        st.session_state.transcript_history = []
+        st.session_state.full_transcript = ""
+        st.session_state.minutes = ""
+        st.rerun()
     
-    # Main content area
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        st.header("🎙️ Audio Recording")
-        
-        # Instructions
-        st.markdown("""
-        <div class="status-box info-box">
-            <strong>How to record:</strong><br>
-            1. Click the microphone button below<br>
-            2. Speak clearly (you'll see a recording indicator)<br>
-            3. Click stop when finished<br>
-            4. Audio will be automatically transcribed
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Audio recorder component
-        audio_bytes = audio_recorder(
-            text="Click to record",
-            recording_color="#e74c3c",
-            neutral_color="#2c3e50",
-            icon_name="microphone",
-            icon_size="2x",
-            pause_threshold=2.0,
-            sample_rate=41_000
-        )
-        
-        # Process recorded audio
-        if audio_bytes:
-            st.audio(audio_bytes, format="audio/wav")
-            
-            with st.spinner("🔄 Transcribing your audio..."):
-                transcript, status = transcribe_audio(audio_bytes)
-                
-                # Display result based on status
-                if status == "success":
-                    st.markdown(f"""
-                    <div class="status-box success-box">
-                        <strong>✅ Transcription successful!</strong><br>
-                        "{transcript}"
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # Add to transcript history
-                    timestamp = datetime.now().strftime("%H:%M:%S")
-                    speaker_num = len(st.session_state.transcript_history) % 2 + 1
-                    entry = f"[{timestamp}] Speaker {speaker_num}: {transcript}"
-                    st.session_state.transcript_history.append(entry)
-                    
-                    # Update full transcript
-                    st.session_state.full_transcript = "\n".join(st.session_state.transcript_history)
-                    
-                elif status == "warning":
-                    st.markdown(f"""
-                    <div class="status-box warning-box">
-                        <strong>⚠️ Transcription issue:</strong><br>
-                        {transcript}
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                else:  # error
-                    st.markdown(f"""
-                    <div class="status-box error-box">
-                        <strong>❌ Transcription failed:</strong><br>
-                        {transcript}
-                    </div>
-                    """, unsafe_allow_html=True)
-        
-        # Generate minutes button
-        if st.session_state.full_transcript:
-            if st.button("📝 Generate Meeting Minutes", type="primary", use_container_width=True):
-                with st.spinner("Generating meeting minutes..."):
-                    st.session_state.minutes = generate_meeting_minutes(
-                        st.session_state.full_transcript, 
-                        st.session_state.agenda, 
-                        attendees
-                    )
-                st.success("Meeting minutes generated successfully!")
-                st.rerun()
-    
-    with col2:
-        st.header("📄 Agenda Preview")
-        if st.session_state.agenda:
-            st.text_area("Meeting Agenda", st.session_state.agenda, height=300, disabled=True)
-        else:
-            st.info("Upload an agenda file to see preview here")
-            st.markdown("""
-            **Sample agenda format:**
-            ```
-            1. Welcome and introductions
-            2. Review of previous meeting
-            3. Current project status
-            4. Budget discussion
-            5. Next steps
-            6. Questions and answers
-            ```
-            """)
+    # Audio Recording Section
+    st.header("🎙️ Audio Recording")
+    st.markdown("""
+    <div class="status-box info-box">
+        <strong>How to record:</strong><br>
+        1. Click the microphone button below<br>
+        2. Speak clearly (you'll see a recording indicator)<br>
+        3. Click stop when finished<br>
+        4. Audio will be automatically transcribed
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Audio recorder component
+    audio_bytes = audio_recorder(
+        text="Click to record",
+        recording_color="#e74c3c",
+        neutral_color="#2c3e50",
+        icon_name="microphone",
+        icon_size="2x",
+        pause_threshold=2.0,
+        sample_rate=41_000
+    )
+
+    # Prevent duplicate transcript entries by tracking last processed audio
+    if 'last_audio_bytes' not in st.session_state:
+        st.session_state.last_audio_bytes = None
+
+    if audio_bytes and (audio_bytes != st.session_state.last_audio_bytes):
+        st.audio(audio_bytes, format="audio/wav")
+        with st.spinner("🔄 Transcribing your audio..."):
+            transcript, status = transcribe_audio(audio_bytes)
+            if status == "success":
+                st.markdown(f"""
+                <div class="status-box success-box">
+                    <strong>✅ Transcription successful!</strong><br>
+                    "{transcript}"
+                </div>
+                """, unsafe_allow_html=True)
+                timestamp = datetime.now().strftime("%H:%M:%S")
+                entry = f"[{timestamp}] {transcript}"
+                st.session_state.transcript_history.append(entry)
+                st.session_state.full_transcript = "\n".join(st.session_state.transcript_history)
+            elif status == "warning":
+                st.markdown(f"""
+                <div class="status-box warning-box">
+                    <strong>⚠️ Transcription issue:</strong><br>
+                    {transcript}
+                </div>
+                """, unsafe_allow_html=True)
+            else:  # error
+                st.markdown(f"""
+                <div class="status-box error-box">
+                    <strong>❌ Transcription failed:</strong><br>
+                    {transcript}
+                </div>
+                """, unsafe_allow_html=True)
+        st.session_state.last_audio_bytes = audio_bytes
+
+    # Generate minutes button
+    if st.session_state.full_transcript:
+        if st.button("📝 Generate Meeting Minutes", type="primary", use_container_width=True):
+            with st.spinner("Generating meeting minutes..."):
+                st.session_state.minutes = generate_meeting_minutes(
+                    st.session_state.full_transcript, 
+                    st.session_state.agenda, 
+                    attendees
+                )
+            st.success("Meeting minutes generated successfully!")
+            st.rerun()
     
     # Transcript and Minutes section
     st.header("📝 Transcript & Minutes")
-    
-    tab1, tab2 = st.tabs(["📋 Live Transcript", "📄 Meeting Minutes"])
-    
-    with tab1:
-        if st.session_state.full_transcript:
-            st.markdown(f"""
-            <div class="transcript-box">
+    if st.session_state.full_transcript:
+        st.subheader("📋 Live Transcript")
+        st.markdown(f"""
+        <div class="transcript-box">
 {st.session_state.full_transcript}
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Download transcript
-            st.download_button(
-                label="⬇️ Download Transcript",
-                data=st.session_state.full_transcript,
-                file_name=f"meeting_transcript_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-                mime="text/plain",
-                use_container_width=True
-            )
-        else:
-            st.info("🎤 Start recording to see transcript here. Each recording will be added as a new entry.")
-    
-    with tab2:
-        if st.session_state.minutes:
-            st.text_area("Generated Minutes", st.session_state.minutes, height=400, disabled=True)
-            
-            # Download minutes
-            st.download_button(
-                label="⬇️ Download Meeting Minutes",
-                data=st.session_state.minutes,
-                file_name=f"meeting_minutes_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-                mime="text/plain",
-                use_container_width=True
-            )
-        else:
-            st.info("📝 Generate meeting minutes from your transcript to see them here")
+        </div>
+        """, unsafe_allow_html=True)
+        st.download_button(
+            label="⬇️ Download Transcript",
+            data=st.session_state.full_transcript,
+            file_name=f"meeting_transcript_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
+    else:
+        st.info("🎤 Start recording to see transcript here. Each recording will be added as a new entry.")
+
+    if st.session_state.minutes:
+        st.subheader("📄 Meeting Minutes")
+        st.text_area("Generated Minutes", st.session_state.minutes, height=400, disabled=True)
+        st.download_button(
+            label="⬇️ Download Meeting Minutes",
+            data=st.session_state.minutes,
+            file_name=f"meeting_minutes_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
+    else:
+        st.info("📝 Generate meeting minutes from your transcript to see them here")
     
     # Instructions
     with st.expander("📖 Detailed Instructions & Troubleshooting"):

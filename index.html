@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meeting Minutes Generator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎤 Meeting Minutes Generator</h1>
+            <p>Record, transcribe, and generate professional meeting minutes seamlessly</p>
+        </div>
+
+        <div class="main-content">
+            <div class="control-panel">
+                <h2 class="section-title">Recording Controls</h2>
+                
+                <div class="recording-indicator" id="recordingIndicator">
+                    <div class="pulse"></div>
+                    <span>Recording in progress...</span>
+                </div>
+
+                <div class="status" id="status">
+                    Ready to record. Please upload agenda first for better results.
+                </div>
+
+                <div class="recording-controls">
+                    <button class="btn btn-record" id="recordBtn">
+                        🎙️ Start Recording
+                    </button>
+                    <button class="btn btn-stop" id="stopBtn" disabled>
+                        ⏹️ Stop Recording
+                    </button>
+                    <button class="btn btn-generate" id="generateBtn" disabled>
+                        📝 Generate Minutes
+                    </button>
+                </div>
+
+                <div class="cost-info">
+                    <h4>💡 Cost-Effective Features:</h4>
+                    <ul>
+                        <li>Uses browser's built-in speech recognition (FREE)</li>
+                        <li>No external API costs for basic transcription</li>
+                        <li>Local processing for agenda analysis</li>
+                        <li>Instant download capabilities</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="agenda-section">
+                <h2 class="section-title">Meeting Agenda</h2>
+                <div class="file-upload" id="fileUpload">
+                    <div style="font-size: 2em; margin-bottom: 15px;">📁</div>
+                    <div>
+                        <strong>Drop your agenda file here</strong><br>
+                        or click to browse
+                    </div>
+                    <div style="margin-top: 10px; color: #718096; font-size: 0.9em;">
+                        Supported: PDF, DOCX, TXT
+                    </div>
+                </div>
+                <input type="file" class="file-input" id="fileInput" accept=".pdf,.docx,.txt">
+                
+                <div class="agenda-content" id="agendaContent">
+                    No agenda uploaded yet. Upload an agenda file to improve meeting minutes quality.
+                </div>
+            </div>
+        </div>
+
+        <div class="transcript-section">
+            <h2 class="section-title">Meeting Transcript</h2>
+            <div class="transcript" id="transcript">
+                Transcript will appear here as you speak...
+            </div>
+            <button class="btn download-btn" id="downloadTranscript" disabled>
+                ⬇️ Download Transcript
+            </button>
+            <button class="btn download-btn" id="downloadMinutes" disabled>
+                ⬇️ Download Minutes
+            </button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

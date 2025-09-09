@@ -14,6 +14,13 @@ import docx
 import PyPDF2
 import re
 from audio_recorder_streamlit import audio_recorder
+from dotenv import load_dotenv
+import openai
+
+load_dotenv()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if OPENAI_API_KEY:
+    openai.api_key = OPENAI_API_KEY
 
 # Page configuration
 st.set_page_config(
@@ -23,7 +30,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better styling
+# Custom CSS for better styling - FIXED
 st.markdown("""
 <style>
     /* Responsive meta tag for mobile scaling */
@@ -43,7 +50,6 @@ st.markdown("""
             min-height: 48px !important;
         }
         .stButton button, .stDownloadButton button {
-            width: 100% !important;
             min-width: 0 !important;
         }
     }
@@ -176,53 +182,52 @@ def transcribe_audio(audio_bytes):
         return f"Transcription error: {str(e)}", "error"
 
 def generate_meeting_minutes(transcript, agenda="", attendees=[]):
-    """Generate formatted meeting minutes"""
+    """Generate formatted meeting minutes - FIXED INDENTATION"""
     now = datetime.now()
     date_str = now.strftime("%Y-%m-%d")
     time_str = now.strftime("%H:%M:%S")
     
-    minutes = f"""MEETING MINUTES
-==================
-
-Date: {date_str}
-Time: {time_str}
-
-"""
+    minutes = (
+        f"MEETING MINUTES\n"
+        f"==================\n\n"
+        f"Date: {date_str}\n"
+        f"Time: {time_str}\n\n"
+    )
     
     if agenda:
-        minutes += f"""AGENDA:
-{agenda}
-
-"""
-    
+        minutes += f"AGENDA:\n{agenda}\n\n"
     if attendees:
-        minutes += f"""ATTENDEES:
-{', '.join(attendees)}
+        minutes += f"ATTENDEES:\n{', '.join(attendees)}\n\n"
 
-"""
+    # Use OpenAI to generate summary if API key is available (v1.x API)
+    summary = None
+    if OPENAI_API_KEY:
+        try:
+            prompt = (
+                "You are an expert meeting assistant. Summarize the following meeting transcript into 3-5 concise bullet points, focusing on the main discussion and decisions.\n\n"
+                f"Transcript:\n{transcript}\n\nSummary:"
+            )
+            response = openai.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=256,
+                temperature=0.4,
+            )
+            summary = response.choices[0].message.content.strip()
+        except Exception as e:
+            summary = f"Error generating AI summary: {str(e)}"
     
-    # Extract key points: unique, non-empty transcript lines (not affected by attendees)
-    lines = [line.strip() for line in transcript.split('\n') if line.strip()]
-    seen = set()
-    unique_lines = []
-    for line in lines:
-        if line not in seen:
-            seen.add(line)
-            unique_lines.append(line)
-        if len(unique_lines) == 5:
-            break
-    minutes += """DISCUSSION SUMMARY:
-"""
-    for i, line in enumerate(unique_lines, 1):
-        minutes += f"{i}. {line}\n"
-    
-    minutes += f"""
+    minutes += "DISCUSSION SUMMARY:\n"
+    if isinstance(summary, str) and summary.strip():
+        minutes += summary.strip() + "\n\n"
+    else:
+        minutes += "Summary not available now, try again or contact developer.\n\n"
 
-FULL TRANSCRIPT:
-================
-{transcript}
-"""
-    
+    minutes += (
+        f"FULL TRANSCRIPT:\n"
+        f"================\n"
+        f"{transcript}\n"
+    )
     return minutes
 
 def main():
